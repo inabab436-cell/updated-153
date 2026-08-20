@@ -45,3 +45,24 @@ describe("live inventory tool", () => {
     expect(source).toContain("buildLiveInventoryResult");
   });
 });
+
+describe("unresolvable references never mean unavailable", () => {
+  it("falls back to the whole live catalogue when the name matches nothing", () => {
+    const res = buildLiveInventoryResult(
+      [{ id: "p1", name: "هودي مخطط", variants: [{ color: "بيج", size: "L", stock: 2 }] }],
+      { product_name: "اللي انت ورتهولي" },
+    );
+    expect(res.resolved).toBe(false);
+    expect(res.products).toHaveLength(1);
+    expect(res.rule).toContain("never tell the customer something does not exist");
+  });
+
+  it("marks a real match as resolved", () => {
+    const res = buildLiveInventoryResult(
+      [{ id: "p1", name: "هودي مخطط", variants: [{ color: "بيج", size: "L", stock: 2 }] }],
+      { product_name: "هودي" },
+    );
+    expect(res.resolved).toBe(true);
+    expect(res.rule).toContain("INTERNAL DATA");
+  });
+});
