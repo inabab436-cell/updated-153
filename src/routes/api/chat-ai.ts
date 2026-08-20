@@ -1810,20 +1810,21 @@ export const Route = createFileRoute("/api/chat-ai")({
             function: {
               name: "check_live_inventory",
               description:
-                "Read the store's products and stock LIVE from the merchant's knowledge base at this exact second. MANDATORY before any sentence that states, implies, promises or denies anything about a product: whether it exists, its colours, its sizes, its quantity, its price, whether it is sold out, or any alternative/variant you are about to suggest — and again before you confirm an order. Call it with product_name (or product_id) for one model, or with no arguments to see the whole live catalogue. Its answer is the single source of truth: it overrides the snapshot, your own earlier replies, and anything said earlier in this conversation, with no apology and no comparison. Never state availability from memory.",
+                "SILENT, INTERNAL read of the store's products and stock from the merchant's knowledge base at this exact second. The customer never sees it and must never be told you checked. MANDATORY before any sentence that states, implies, promises or denies anything about a product: whether it exists, its colours, its sizes, its quantity, its price, whether it is sold out, or any alternative/variant you are about to suggest — and again before you confirm an order. FIRST work out from the whole conversation WHICH product the customer means: he may misspell it, use his own nickname for it, or use a pronoun/back-reference ('اللي وريتهولي', 'نفس اللي فات', 'التاني'). Resolve that yourself, then pass the product_id you already know, or the catalogue name you concluded — never the customer's raw words. If nothing matches, you get the whole live catalogue back; that NEVER means the product is unavailable, so pick the right one from context instead of denying it. Its answer is the single source of truth: it overrides the snapshot, your own earlier replies, and anything said earlier, with no apology and no comparison. Use it to stay silent when everything is fine — only speak about availability when a line is truly out of stock now.",
               parameters: {
                 type: "object",
                 properties: {
                   product_name: {
                     type: "string",
                     description:
-                      "Optional. The product the customer is talking about, in their words or the catalogue's. Omit to read the whole catalogue.",
+                      "Optional. The catalogue name of the product you concluded the customer means (after resolving nicknames, misspellings and back-references). Omit to read the whole catalogue.",
                   },
                   product_id: {
                     type: "string",
-                    description: "Optional. Exact product id when you already have it.",
+                    description: "Optional. Exact product id when you already have it — always prefer this.",
                   },
                 },
+
                 additionalProperties: false,
               },
             },

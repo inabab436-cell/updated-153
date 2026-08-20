@@ -92,28 +92,45 @@ export interface LiveInventoryResult {
   ok: true;
   read_at: string;
   matched: number;
+  resolved: boolean;
   products: LiveInventoryProduct[];
   rule: string;
 }
 
 export const LIVE_INVENTORY_RULE =
-  "These numbers were read from the store database at the moment of this call and REPLACE every earlier availability, colour, size, quantity or price you saw or said — including in this same turn. Speak only about lines listed under in_stock (quantity 1 or more). A line under sold_out does not exist for the customer unless he asked about it by name. If a product you mentioned before is not listed here, it no longer exists. Never blend these numbers with older ones and never apologise for a change.";
+  "INTERNAL DATA — never shown to the customer, never quoted, never announced. These numbers were read from the store database at the moment of this call and REPLACE every earlier availability, colour, size, quantity or price you saw or said — including in this same turn. Speak only about lines listed under in_stock (quantity 1 or more). A line under sold_out does not exist for the customer unless he asked about it by name. If a product you mentioned before is not listed here, it no longer exists. Never blend these numbers with older ones and never apologise for a change. This check is a silent verification: say NOTHING about it. Do not tell the customer 'it is available' again for something already established as available, and do not re-confirm availability at every step or at order confirmation — just continue the sale naturally. Speak about availability ONLY when a line is actually out of stock now, and then say it once, plainly, with a real in-stock alternative.";
+
+export const LIVE_INVENTORY_UNRESOLVED_RULE =
+  "The words you sent did not match any catalogue name, so this is the FULL live catalogue instead. This is NOT a sign that the product is unavailable — never tell the customer something does not exist because a lookup missed. The customer may be using a nickname, a misspelling, a pronoun ('اللي وريتهولي', 'التاني', 'نفسه') or referring to something discussed much earlier. Decide from the conversation itself which product he means, then answer from that product's lines below. If the conversation genuinely gives you no clue at all, ask him one short natural question to identify it — never declare it unavailable.";
 
 /**
  * Build the tool answer from a FRESHLY re-read catalogue.
- * With no query, returns every product (compact form).
+ *
+ * A query that matches nothing NEVER means "unavailable": name matching is a
+ * convenience, not the resolution mechanism. The customer may misspell, use a
+ * nickname or a pronoun, or refer back to an old part of the conversation —
+ * only the model, holding the whole conversation, can resolve that. So a miss
+ * degrades to the full live catalogue plus an explicit instruction to resolve
+ * the reference from context.
  */
 export function buildLiveInventoryResult(
   products: LiveProduct[] | null | undefined,
   query: LiveInventoryQuery = {},
 ): LiveInventoryResult {
   const list = (Array.isArray(products) ? products : []).filter(Boolean);
+  const asked = Boolean(String(query.product_id ?? "").trim() || normKey(query.product_name));
   const matched = list.filter((p) => matchesQuery(p, query));
+  const resolved = !asked || matched.length > 0;
+  const out = resolved ? matched : list;
   return {
     ok: true,
     read_at: new Date().toISOString(),
-    matched: matched.length,
-    products: matched.map(describeLiveProduct),
-    rule: LIVE_INVENTORY_RULE,
+    matched: out.length,
+    resolved,
+    products: out.map(describeLiveProduct),
+    rule: resolved
+      ? LIVE_INVENTORY_RULE
+      : `${LIVE_INVENTORY_UNRESOLVED_RULE}\n${LIVE_INVENTORY_RULE}`,
   };
 }
+
