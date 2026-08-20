@@ -1959,7 +1959,8 @@ export const Route = createFileRoute("/api/chat-ai")({
             "Never blend old and new values for a store fact. Never guess. If a product or policy you mentioned earlier is not present here anymore, treat it as no longer existing (deleted).\n" +
             
             "Every earlier agent reply in this transcript carries an INTERNAL expiry tag. Its stock/availability wording is a past database state, never a contradiction of this snapshot: answer availability from this snapshot ALONE, with no apology, no comparison, and no reference to what you said before.\n" +
-            "Prior conversation REMAINS valid for the customer as a person (tone, preferences, personalization) AND for everything the customer already told you about this order — use it, do not ask again. It is never a source of mutable store facts.\n";
+            "Prior conversation REMAINS valid for the customer as a person (tone, preferences, personalization) AND for everything the customer already told you about this order — use it, do not ask again. It is never a source of mutable store facts.\n" +
+            "This snapshot was taken when the customer's message arrived; stock can move at any second afterwards. Call check_live_inventory immediately before you state ANY product fact (existence, colours, sizes, quantities, prices, sold out, alternatives) and before confirming an order. Its answer is newer than this snapshot and overrides it.\n";
 
 
           // Customer image → product match. Runs only when the current
