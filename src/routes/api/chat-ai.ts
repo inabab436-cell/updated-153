@@ -3518,10 +3518,10 @@ export const Route = createFileRoute("/api/chat-ai")({
                   console.error("[chat-ai] live inventory re-read failed; using last good read");
                 }
                 const { buildLiveInventoryResult } = await import("@/lib/live-inventory");
-                toolResult = buildLiveInventoryResult(merchantData.products as any, {
+                toolResult = { ...buildLiveInventoryResult(merchantData.products as any, {
                   product_name: typeof liveArgs?.product_name === "string" ? liveArgs.product_name : null,
                   product_id: typeof liveArgs?.product_id === "string" ? liveArgs.product_id : null,
-                });
+                }) };
               } else if (fnName === "calculate_offer_price") {
                 const r = await executeCalculateOfferPrice(rawArgs);
                 toolResult = r.result;
