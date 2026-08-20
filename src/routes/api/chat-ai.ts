@@ -1799,6 +1799,37 @@ export const Route = createFileRoute("/api/chat-ai")({
             },
           };
 
+          // LIVE INVENTORY — the agent re-reads the merchant knowledge base at
+          // the exact moment it needs to say anything about a product. The
+          // turn snapshot can already be seconds old (merchant edit, parallel
+          // order, restock); this call is what makes "available" mean
+          // available NOW, and what lets the agent list the real colours and
+          // sizes instead of guessing or staying silent about variants.
+          const checkLiveInventoryTool = {
+            type: "function" as const,
+            function: {
+              name: "check_live_inventory",
+              description:
+                "Read the store's products and stock LIVE from the merchant's knowledge base at this exact second. MANDATORY before any sentence that states, implies, promises or denies anything about a product: whether it exists, its colours, its sizes, its quantity, its price, whether it is sold out, or any alternative/variant you are about to suggest — and again before you confirm an order. Call it with product_name (or product_id) for one model, or with no arguments to see the whole live catalogue. Its answer is the single source of truth: it overrides the snapshot, your own earlier replies, and anything said earlier in this conversation, with no apology and no comparison. Never state availability from memory.",
+              parameters: {
+                type: "object",
+                properties: {
+                  product_name: {
+                    type: "string",
+                    description:
+                      "Optional. The product the customer is talking about, in their words or the catalogue's. Omit to read the whole catalogue.",
+                  },
+                  product_id: {
+                    type: "string",
+                    description: "Optional. Exact product id when you already have it.",
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+          };
+
+
           const attachProductMediaTool = {
             type: "function" as const,
             function: {
