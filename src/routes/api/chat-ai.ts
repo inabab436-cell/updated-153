@@ -1799,6 +1799,37 @@ export const Route = createFileRoute("/api/chat-ai")({
             },
           };
 
+          // LIVE INVENTORY — the agent re-reads the merchant knowledge base at
+          // the exact moment it needs to say anything about a product. The
+          // turn snapshot can already be seconds old (merchant edit, parallel
+          // order, restock); this call is what makes "available" mean
+          // available NOW, and what lets the agent list the real colours and
+          // sizes instead of guessing or staying silent about variants.
+          const checkLiveInventoryTool = {
+            type: "function" as const,
+            function: {
+              name: "check_live_inventory",
+              description:
+                "Read the store's products and stock LIVE from the merchant's knowledge base at this exact second. MANDATORY before any sentence that states, implies, promises or denies anything about a product: whether it exists, its colours, its sizes, its quantity, its price, whether it is sold out, or any alternative/variant you are about to suggest — and again before you confirm an order. Call it with product_name (or product_id) for one model, or with no arguments to see the whole live catalogue. Its answer is the single source of truth: it overrides the snapshot, your own earlier replies, and anything said earlier in this conversation, with no apology and no comparison. Never state availability from memory.",
+              parameters: {
+                type: "object",
+                properties: {
+                  product_name: {
+                    type: "string",
+                    description:
+                      "Optional. The product the customer is talking about, in their words or the catalogue's. Omit to read the whole catalogue.",
+                  },
+                  product_id: {
+                    type: "string",
+                    description: "Optional. Exact product id when you already have it.",
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+          };
+
+
           const attachProductMediaTool = {
             type: "function" as const,
             function: {
@@ -1928,7 +1959,8 @@ export const Route = createFileRoute("/api/chat-ai")({
             "Never blend old and new values for a store fact. Never guess. If a product or policy you mentioned earlier is not present here anymore, treat it as no longer existing (deleted).\n" +
             
             "Every earlier agent reply in this transcript carries an INTERNAL expiry tag. Its stock/availability wording is a past database state, never a contradiction of this snapshot: answer availability from this snapshot ALONE, with no apology, no comparison, and no reference to what you said before.\n" +
-            "Prior conversation REMAINS valid for the customer as a person (tone, preferences, personalization) AND for everything the customer already told you about this order — use it, do not ask again. It is never a source of mutable store facts.\n";
+            "Prior conversation REMAINS valid for the customer as a person (tone, preferences, personalization) AND for everything the customer already told you about this order — use it, do not ask again. It is never a source of mutable store facts.\n" +
+            "This snapshot was taken when the customer's message arrived; stock can move at any second afterwards. Call check_live_inventory immediately before you state ANY product fact (existence, colours, sizes, quantities, prices, sold out, alternatives) and before confirming an order. Its answer is newer than this snapshot and overrides it.\n";
 
 
           // Customer image → product match. Runs only when the current
@@ -3363,7 +3395,7 @@ export const Route = createFileRoute("/api/chat-ai")({
                 body: JSON.stringify({
                   model: "google/gemini-2.5-flash",
                   messages: aiMessages,
-                  tools: [createOrderTool, requestHandoffTool, reportMissingInfoTool, recallEarlierConversationTool, attachProductMediaTool, calculateOfferPriceTool],
+                  tools: [createOrderTool, requestHandoffTool, reportMissingInfoTool, recallEarlierConversationTool, attachProductMediaTool, calculateOfferPriceTool, checkLiveInventoryTool],
                 }),
               });
             } catch (e) {
@@ -3470,6 +3502,26 @@ export const Route = createFileRoute("/api/chat-ai")({
               } else if (fnName === "attach_product_media") {
                 const r = await executeAttachProductMedia(rawArgs);
                 toolResult = r.result;
+              } else if (fnName === "check_live_inventory") {
+                // Re-read the merchant knowledge base NOW and rebuild the
+                // pinned snapshot from it, so the numbers the model quotes and
+                // the numbers in its context are the same live values.
+                let liveArgs: any = {};
+                try {
+                  liveArgs = JSON.parse(rawArgs || "{}") ?? {};
+                } catch {
+                  liveArgs = {};
+                }
+                try {
+                  await refreshStockSnapshotAfterMutation();
+                } catch {
+                  console.error("[chat-ai] live inventory re-read failed; using last good read");
+                }
+                const { buildLiveInventoryResult } = await import("@/lib/live-inventory");
+                toolResult = { ...buildLiveInventoryResult(merchantData.products as any, {
+                  product_name: typeof liveArgs?.product_name === "string" ? liveArgs.product_name : null,
+                  product_id: typeof liveArgs?.product_id === "string" ? liveArgs.product_id : null,
+                }) };
               } else if (fnName === "calculate_offer_price") {
                 const r = await executeCalculateOfferPrice(rawArgs);
                 toolResult = r.result;
