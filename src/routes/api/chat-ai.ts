@@ -3394,7 +3394,7 @@ export const Route = createFileRoute("/api/chat-ai")({
                 body: JSON.stringify({
                   model: "google/gemini-2.5-flash",
                   messages: aiMessages,
-                  tools: [createOrderTool, requestHandoffTool, reportMissingInfoTool, recallEarlierConversationTool, attachProductMediaTool, calculateOfferPriceTool],
+                  tools: [createOrderTool, requestHandoffTool, reportMissingInfoTool, recallEarlierConversationTool, attachProductMediaTool, calculateOfferPriceTool, checkLiveInventoryTool],
                 }),
               });
             } catch (e) {
@@ -3501,6 +3501,26 @@ export const Route = createFileRoute("/api/chat-ai")({
               } else if (fnName === "attach_product_media") {
                 const r = await executeAttachProductMedia(rawArgs);
                 toolResult = r.result;
+              } else if (fnName === "check_live_inventory") {
+                // Re-read the merchant knowledge base NOW and rebuild the
+                // pinned snapshot from it, so the numbers the model quotes and
+                // the numbers in its context are the same live values.
+                let liveArgs: any = {};
+                try {
+                  liveArgs = JSON.parse(rawArgs || "{}") ?? {};
+                } catch {
+                  liveArgs = {};
+                }
+                try {
+                  await refreshStockSnapshotAfterMutation();
+                } catch {
+                  console.error("[chat-ai] live inventory re-read failed; using last good read");
+                }
+                const { buildLiveInventoryResult } = await import("@/lib/live-inventory");
+                toolResult = buildLiveInventoryResult(merchantData.products as any, {
+                  product_name: typeof liveArgs?.product_name === "string" ? liveArgs.product_name : null,
+                  product_id: typeof liveArgs?.product_id === "string" ? liveArgs.product_id : null,
+                });
               } else if (fnName === "calculate_offer_price") {
                 const r = await executeCalculateOfferPrice(rawArgs);
                 toolResult = r.result;
