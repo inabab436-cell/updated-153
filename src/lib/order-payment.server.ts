@@ -115,7 +115,7 @@ export async function confirmPendingOrdersForConversation(
       p_order_id: o.id,
       p_merchant_id: opts.merchantId,
     });
-    if (rpcErr) throw new Error(rpcErr.message);
+    if (rpcErr) throw new Error(describeConfirmationError(rpcErr.message));
     const r = (res ?? {}) as any;
     if (r.ok === false) {
       results.push({
