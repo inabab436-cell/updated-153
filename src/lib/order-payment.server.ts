@@ -62,6 +62,22 @@ export function summarizeConfirmations(results: ConfirmationOutcome[]): Confirma
   };
 }
 
+/**
+ * Turns a raw database error into a message the merchant can act on.
+ *
+ * A database that never received the offer-redemption helpers fails the whole
+ * confirmation with "function public.record_order_offer_redemptions(...) does
+ * not exist"; the remedy is to run the SQL file, so say that plainly instead of
+ * showing the raw Postgres text.
+ */
+export function describeConfirmationError(message: string | null | undefined): string {
+  const raw = String(message ?? "");
+  if (raw.includes("record_order_offer_redemptions")) {
+    return "قاعدة البيانات ناقصة دالة تسجيل العروض. شغّل الملف db/2026-09-04_restore_offer_redemption_fn.sql في محرر SQL ثم أعد تأكيد الدفع.";
+  }
+  return raw || "تعذّر تأكيد الدفع.";
+}
+
 /** Arabic one-liner for a shortage list (used in toasts). */
 export function formatShortages(shortages: ShortageLine[]): string {
   return (shortages ?? [])
@@ -99,7 +115,7 @@ export async function confirmPendingOrdersForConversation(
       p_order_id: o.id,
       p_merchant_id: opts.merchantId,
     });
-    if (rpcErr) throw new Error(rpcErr.message);
+    if (rpcErr) throw new Error(describeConfirmationError(rpcErr.message));
     const r = (res ?? {}) as any;
     if (r.ok === false) {
       results.push({

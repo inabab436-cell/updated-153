@@ -119,7 +119,10 @@ export const confirmOrderPayment = createServerFn({ method: "POST" })
         p_order_id: data.id,
         p_merchant_id: merchantId,
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        const { describeConfirmationError } = await import("@/lib/order-payment.server");
+        throw new Error(describeConfirmationError(error.message));
+      }
       const r = (res ?? {}) as any;
       if (r.ok === false) {
         if (r.error === "insufficient_stock") {
